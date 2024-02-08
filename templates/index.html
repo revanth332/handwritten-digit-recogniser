@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Digit Recogniser</title>
+    <style>
+        .canvas-wrapper{
+            width: 100vw;
+        }
+        #can{
+            display: block;
+            margin:0 auto;
+            border:2px solid;
+        }
+        input[type="button"]{
+            border-radius: 50%;
+            width:60px;
+            height:60px;
+            color:white;
+            font-weight: bold;
+        }
+        input[type="button"]:first-child{
+            background-color: rgb(41, 143, 41);
+        }
+        input[type="button"]:nth-child(2){
+            background-color: rgb(241, 38, 75);
+        }
+        .tools{
+            text-align: center;
+            margin:20px 0;
+        }
+        .result{
+            border:1px solid black;
+            height:100px;
+            width:100px;
+            font-size:40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin:0 auto;
+        }
+        .res{
+            height:100px;
+            width:100px;
+            margin:0 auto;
+        }
+        .loader{
+            display: flex;
+            height:100px;
+            width:100px;
+            justify-content: center;
+            align-items: center;
+            margin:0 auto;
+        }
+        .dot{
+            height: 20px;
+            width:20px;
+            background-color: blueviolet;
+            border-radius: 50%;
+            margin-left:10px;
+            animation:load 600ms ease-in-out infinite alternate-reverse;
+        }
+        .dot:first-child{
+            animation-delay: 100ms;
+        }
+        .dot:nth-child(2){
+            animation-delay: 300ms;
+        }
+        .dot:nth-child(3){
+            animation-delay: 600ms;
+        }
+        @keyframes load {
+            0%{
+                transform: scale(0);
+            }
+            100%{
+                transform: scale(1);
+            }
+        }
+
+    </style>
+</head>
+<body onload="init()">
+    <h1 align="center">Digit Recogniser</h1>
+    <div class="canvas-wrapper">
+        <canvas id="can" width="200" height="200" ></canvas>
+    </div>
+    <form id="hiddenForm">{% csrf_token %}</form>
+    <div class="tools">
+        <input type="button" value="submit" id="btn" size="30" onclick="save()">
+        <input type="button" value="clear" id="clr" size="23" onclick="erase()">
+    </div>
+    <div class="res">
+
+    </div>
+    
+</body>
+
+<script>
+    var canvas, ctx, flag = false,
+    prevX = 0,
+    currX = 0,
+    prevY = 0,
+    currY = 0,
+    dot_flag = false;
+
+var x = "black",
+    y = 2;
+
+function init() {
+    canvas = document.getElementById('can');
+    ctx = canvas.getContext("2d");
+    w = canvas.width;
+    h = canvas.height;
+
+    canvas.addEventListener("mousemove", function (e) {
+        findxy('move', e)
+    }, false);
+    canvas.addEventListener("mousedown", function (e) {
+        findxy('down', e)
+    }, false);
+    canvas.addEventListener("mouseup", function (e) {
+        findxy('up', e)
+    }, false);
+    canvas.addEventListener("mouseout", function (e) {
+        findxy('out', e)
+    }, false);
+}
+
+
+function draw() {
+    ctx.beginPath();
+    ctx.moveTo(prevX, prevY);
+    ctx.lineTo(currX, currY);
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 15;
+    ctx.stroke();
+    ctx.closePath();
+}
+
+function erase() {
+    var m = confirm("Want to clear");
+    if (m) {
+        ctx.clearRect(0, 0, w, h);
+        document.querySelector(".res").innerHTML="";
+    }
+}
+
+function save() {
+    document.querySelector(".res").innerHTML=`<div class="loader">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+        </div>`;
+    var dataURL = canvas.toDataURL();
+    const formData = new FormData();
+    formData.append("image", dataURL);
+
+    const csrfToken = document.querySelector('input[name="csrfmiddlewaretoken"]').value;
+    formData.append("csrfmiddlewaretoken", csrfToken);
+
+    fetch("/inputPage/", {
+        method: "POST",
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Handle server response
+        console.log(data)
+        document.querySelector(".res").innerHTML=`<div class="result">
+            ${data["ans"]}
+        </div>`;
+    })
+    .catch(error => {
+        // Handle errors
+        document.querySelector(".res").innerHTML=`<div class="result">
+            ${error}
+        </div>`;
+    });
+    // console.log(dataURL)
+    // document.getElementById("canvasimg").src = dataURL;
+    // document.getElementById("canvasimg").style.display = "inline";
+}
+
+function findxy(res, e) {
+    if (res == 'down') {
+        prevX = currX;
+        prevY = currY;
+        currX = e.clientX - canvas.offsetLeft;
+        currY = e.clientY - canvas.offsetTop;
+
+        flag = true;
+        dot_flag = true;
+        if (dot_flag) {
+            ctx.beginPath();
+            ctx.fillStyle = x;
+            ctx.fillRect(currX, currY, 2, 2);
+            ctx.closePath();
+            dot_flag = false;
+        }
+    }
+    if (res == 'up' || res == "out") {
+        flag = false;
+    }
+    if (res == 'move') {
+        if (flag) {
+            prevX = currX;
+            prevY = currY;
+            currX = e.clientX - canvas.offsetLeft;
+            currY = e.clientY - canvas.offsetTop;
+            draw();
+        }
+    }
+}
+
+</script>
+</html>
